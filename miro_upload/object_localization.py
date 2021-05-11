@@ -13,6 +13,7 @@ from nav_msgs.msg import Odometry
 
 import os
 import math
+import time
 
 from bluetoother_scanner import BluetootherScanner
 
@@ -23,9 +24,14 @@ class Client:
     OBJECT_CLOSE = False
     RESOLVE_COLLISION = False
     RESOLVE_COLLISION_ITERATIONS = 300
-    SUCCESS = False
+    SUCCESS = True
     BROADCAST_RATE = 50
     MAX_WHEEL_SPEED = 0.25
+
+    sonar_reading = None
+
+    last_angle_update = time.time()
+    counter = 0
 
     BEACON_1_POS = (0, 0)
     BEACON_2_POS = (1.8, 0)
@@ -50,9 +56,21 @@ class Client:
         if data.range < 0.05:
             self.OBJECT_CLOSE = True
 
+        self.sonar_reading = data.range
+        
+
     def body_vel_callback(self, data):
-        self.angle_to_origin += data.twist.angular.z * (180 / math.pi) / self.BROADCAST_RATE
-        self.angle_to_origin %= 360
+        self.counter += 1
+        self.angle_to_origin += (-data.twist.angular.z) * (180 / math.pi) / self.BROADCAST_RATE
+
+        if self.angle_to_origin < 0:
+            self.angle_to_origin = 360 - abs(self.angle_to_origin)
+
+        else:
+            self.angle_to_origin %= 360
+
+        #print "Angle to origin - " + str(self.angle_to_origin)
+        
 
     def detect_collision(self):
         if self.TOUCH_BODY or self.TOUCH_HEAD or self.OBJECT_CLOSE:
@@ -92,18 +110,18 @@ class Client:
 
         mag = math.sqrt((x_diff ** 2) + (y_diff ** 2))
 
-        ang = math.acos(abs(x_diff) / mag) * (180 / math.pi)
+        ang = math.asin(abs(x_diff) / mag) * (180 / math.pi)
 
         if (x_diff > 0):
             if (y_diff < 0):
-                ang += 90
+                ang = 360 - ang
+
+            elif (y_diff > 0):
+                ang += 180
             
         if (x_diff < 0):
-            if (y_diff < 0):
-                ang += 180
-
-            else:
-                ang += 270
+            if (y_diff > 0):
+                ang = 180 - ang
 
         return [mag, ang]
 
@@ -162,7 +180,7 @@ class Client:
         elif turn < 0 and turn > -180:
             turn_angle = abs(turn)
 
-        elif turn_angle < -180:
+        elif turn < -180:
             turn_angle = abs(turn + 180)
                 
         return turn_angle
@@ -173,22 +191,26 @@ class Client:
         beacon_1_vector = self.compute_magnitude_and_angle(position, self.BEACON_1_POS)
         beacon_2_vector = self.compute_magnitude_and_angle(position, self.BEACON_2_POS)
         beacon_3_vector = self.compute_magnitude_and_angle(position, self.BEACON_3_POS)
+        beacon_vectors = [beacon_1_vector, beacon_2_vector, beacon_3_vector]
+
 
         vectors = self.transform_magnitudes([beacon_1_vector, beacon_2_vector, beacon_3_vector])
 
-        resultant_vector = self.get_resultant_vector(vectors, position) 
+        #resultant_vector = self.get_resultant_vector(vectors, position) 
+        #print "Resultant Vector - " + str(resultant_vector)
 
-        turn = resultant_vector[1] - self.angle_to_origin
+        turn = beacon_vectors[self.target_beacon][1] - self.angle_to_origin
         turn_angle = self.find_turn_angle(turn) 
-        print "Turn - " + str(turn)
-        print "Turn angle - " + str(turn_angle)
-        if (turn < 0  and turn > -180) or turn > 180: # Turn Left
-            left_speed = round(0.1 * (turn_angle / 180), 2)
-            right_speed = 0.1
 
-        else: # Turn right
-            right_speed = round(0.1 * (turn_angle / 180), 2)
-            left_speed = 0.1
+        # Turn right
+        if (turn < 0  and turn > -180) or turn > 180:
+            left_speed = (0.25 - round(0.25 * (turn_angle / 180), 2)) - 0.12
+            right_speed = 0.25
+
+        # Turn right
+        else: 
+            right_speed = (0.25 - round(0.25 * (turn_angle / 180), 2)) - 0.12
+            left_speed = 0.25
 
         return (left_speed, right_speed)
 
@@ -196,16 +218,14 @@ class Client:
         self.target_beacon = int(input('Which beacon would you like to navigate to? (1, 2, 3)')) - 1
         while self.target_beacon not in [0, 1, 2]:
             self.target_beacon = int(input('Which beacon would you like to navigate to? (1, 2, 3)')) - 1
+            print self.target_beacon
+        self.SUCCESS = False
 
 
-#    def update_mean(mean_1, var_1, mean_2, var_2):
-#        return ((mean_1 * var_2) + (mean_2 * var_1)) / (var_1 + var_2)
-#
-#    def update_var(var_1, var_2):
-#        return 1 / ((1 / var_1) + (1 / var_2))
-#
-#    def predict(mean_1, var_1, mean_2, var_2):
-#        return [mean_1 + mean_2, var_1 + var_2]
+    def check_arrived(self):
+        if self.sonar_reading < 0.2: 
+            self.SUCCESS = True
+
 
     def __init__(self):
         rospy.init_node('object_localization', anonymous=True)
@@ -239,20 +259,23 @@ class Client:
 
             elif self.SUCCESS:
                 self.move_miro(0,0)
-
                 self.take_navigation_input()
-
 
             else:
                 print "-------------------------------"
-                print "Angle to origin - " + str(self.angle_to_origin)
+                #print "Angle to origin - " + str(self.angle_to_origin)
                 (left_speed, right_speed) = self.calculate_wheel_speed()
-                print "Wheel speed - " + str(left_speed) + "," + str(right_speed)
-                print "-------------------------------"
+                #print "Wheel speed - " + str(left_speed) + "," + str(right_speed)
+                #print "-------------------------------"
                 self.move_miro(left_speed, right_speed)
+                self.check_arrived()
 
 
             rospy.sleep(self.TICK)
+            
+            #print self.angle_to_origin
+            #self.calculate_wheel_speed()
+            #print self.scanner.get_position()
 
 if __name__ == "__main__":
     client = Client()
