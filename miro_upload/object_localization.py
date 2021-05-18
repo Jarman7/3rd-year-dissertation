@@ -186,7 +186,7 @@ class Client:
 
             # Cap magnitude at 0.25
             else:
-                scaled_vectors.append([min(scaled_mag, 0.25), vectors[i][1]])
+                scaled_vectors.append([min(scaled_mag, self.MAX_WHEEL_SPEED), vectors[i][1]])
 
         return scaled_vectors   
 
