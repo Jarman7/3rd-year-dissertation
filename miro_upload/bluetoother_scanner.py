@@ -5,8 +5,7 @@
 # Beacon 2 - dc:0d:30:01:14:cd
 # Beacon 3 - dc:0d:30:01:14:d2
 from __future__ import division
-from bluepy.btle import Scanner, DefaultDelegate
-from sys import stdout
+from bluepy.btle import Scanner
 from collections import deque
 import math
 
