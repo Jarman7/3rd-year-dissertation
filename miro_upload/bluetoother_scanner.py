@@ -18,9 +18,10 @@ class BluetootherScanner:
     #N = 3.5
     #RSSI_0 = -65
     #N = [1.91, 3.73, 1.68]
-    N = [1.91, 3.73, 3]
-
-    RSSI_0 = [-63.4, -62.7, -59.7]
+    #N = [1.91, 3.73, 3]
+    N = [2.3, 3.73, 3.5]
+    
+    RSSI_0 = [-63.4, -65.7, -59.7]
     SCAN_DURATION = 0.1
 
     # Beacon MAC addresses

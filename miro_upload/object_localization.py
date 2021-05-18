@@ -24,7 +24,7 @@ class Client:
     OBJECT_CLOSE = False
     RESOLVE_COLLISION = False
     RESOLVE_COLLISION_ITERATIONS = 300
-    SUCCESS = True
+    SUCCESS = False
     BROADCAST_RATE = 50
     MAX_WHEEL_SPEED = 0.25
 
@@ -42,7 +42,7 @@ class Client:
 
     resolve_collision_counter = RESOLVE_COLLISION_ITERATIONS
     angle_to_origin = 0
-    target_beacon = 0
+    target_beacon = 1
 
     def touch_body_callback(self, data):
         if data.data > 0:
@@ -82,6 +82,11 @@ class Client:
         self.TOUCH_HEAD = False
         self.OBJECT_CLOSE = False
         self.resolve_collision_counter = self.RESOLVE_COLLISION_ITERATIONS
+
+
+    def reset_success_vars(self):
+        self.success_start = time.time()
+
 
     def move_miro(self, vel_left, vel_right):
         velocity_msg = TwistStamped()
@@ -225,6 +230,7 @@ class Client:
     def check_arrived(self):
         if self.sonar_reading < 0.2: 
             self.SUCCESS = True
+            self.reset_success_vars()
 
 
     def __init__(self):
@@ -258,11 +264,18 @@ class Client:
                 self.resolve_collision()
 
             elif self.SUCCESS:
-                self.move_miro(0,0)
-                self.take_navigation_input()
+                print "Success"
+                #self.take_navigation_input()
+                if (time.time() - self.success_start) < 2:
+                    self.move_miro(-0.25, 0.25)
+
+                else:    
+                    self.target_beacon += 1
+                    self.target_beacon %= 3
+                    self.SUCCESS = False
 
             else:
-                print "-------------------------------"
+                #print "-------------------------------"
                 #print "Angle to origin - " + str(self.angle_to_origin)
                 (left_speed, right_speed) = self.calculate_wheel_speed()
                 #print "Wheel speed - " + str(left_speed) + "," + str(right_speed)
