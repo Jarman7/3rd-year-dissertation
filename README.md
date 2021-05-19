@@ -1,5 +1,7 @@
-# 3rd-year-dissertation
-
+# Extending a Domestic Robot with Close Range Object Detection and Tracking Functionality
+This project has been split into 2 files:
+* ```bluetooth_scanner.py``` - Contains the code used for interfacing and getting data from BLE beacons
+* ```object_localization.py``` - Contains the main system control logic
 ## Beacon MAC Addresses
 Beacon 1 - dc:0d:30:01:14:95
 
